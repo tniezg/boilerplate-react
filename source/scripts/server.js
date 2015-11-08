@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-11-08 00:33:59
+ * @Last Modified time: 2015-11-08 03:05:03
  */
 'use strict';
 
@@ -71,7 +71,7 @@ if(configuration === null){
   throw new Error(
     'CONFIGURATION_FILE_PATH system variable pointing to module' + 
     ' (\'require\' used) with server configuration needs to be setup before' + 
-    ' running the server';
+    ' running the server'
   );
 }else{
   let serverLogger;
