@@ -1,0 +1,8 @@
+/processed
+/node_modules
+.DS_Store
+/deploy
+/npm-debug.log
+/.gulp-temp
+/browserify-cache.json
+npm-debug.log

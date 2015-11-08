@@ -1,0 +1,34 @@
+{
+  "name": "website",
+  "version": "0.1.0",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "main": " --harmony server.js",
+  "engines": {
+    "node": ">= 4.2.1",
+    "npm": ">= 2.11.3"
+  },
+  "private": true,
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "determine-configuration": "^0.3.0",
+    "express": "^4.13.3",
+    "express-handlebars": "^2.0.1",
+    "handlebars": "^4.0.4",
+    "lodash": "^3.10.1",
+    "morgan": "^1.6.1",
+    "plain-logger": "^0.8.0",
+    "react": "^0.14.2",
+    "react-dom": "^0.14.2",
+    "react-router": "^0.13.5",
+    "react-router-assembly": "^0.6.0",
+    "serializable-key-set": "^0.1.0",
+    "source-map-support": "^0.3.3"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.0"
+  }
+}
