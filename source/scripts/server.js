@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-11-08 03:05:03
+ * @Last Modified time: 2015-12-12 22:04:03
  */
 'use strict';
 
@@ -78,7 +78,7 @@ if(configuration === null){
   let express;
   let app;
   let exphbs;
-  let assembleReact;
+  let assemble;
   let serverPropsGenerator;
 
   listenToShutdownMessageIfChild();
@@ -93,24 +93,41 @@ if(configuration === null){
   app.engine('handlebars', exphbs());
   app.set('view engine', 'handlebars');
 
-  app.use(serverLogger('server.js'));
+  app.use(serverLogger('dev'));
   app.use(express.static('public'));
 
-  assembleReact = require('react-router-assembly');
+  assemble = require('react-router-assembly');
 
   serverPropsGenerator = require('./routing/serverPropsGenerator');
 
-  assembleReact({
-    app: app,
-    doneCallback: setupRest.bind(null, app, configuration.port, configuration.host),
-    routesElementPath: __dirname + '/routing/routes',
-    serverPropsGenerator: serverPropsGenerator,
-    templatePath: __dirname + '/../views/react-page.handlebars',
-    isomorphicLogicPath: __dirname + '/routing/isomorphicLogic',
-    clientPropsPath: __dirname + '/routing/clientProps',
-    compressFrontScript: configuration.compressFrontScript,
-    additionalTemplateProps: {
-      pageTitle: 'got to code'
+  assemble.build({
+    clientPropsPath: './routing/clientProps',
+    routesElementPath: './routing/routes',
+    isomorphicLogicPath: './routing/isomorphicLogic',
+    extraCompress: process.env.NODE_ENV,
+    templatePath: '../views/react-page.handlebars',
+    mode: process.env.NODE_ENV === 'production'?assembly.modes.BUILD:assembly.modes.BUILD_AND_WATCH,
+    onChange: function(){
+      console.log('scripts changed');
+    },
+    onUpdate: function(attach){
+      console.log('scripts updated');
+
+      restartServer();
     }
   });
+
+  // assemble({
+  //   app: app,
+  //   doneCallback: setupRest.bind(null, app, configuration.port, configuration.host),
+  //   routesElementPath: __dirname + '/routing/routes',
+  //   serverPropsGenerator: serverPropsGenerator,
+  //   templatePath: __dirname + '/../views/react-page.handlebars',
+            //   isomorphicLogicPath: __dirname + '/routing/isomorphicLogic',
+  //   clientPropsPath: __dirname + '/routing/clientProps',
+  //   compressFrontScript: configuration.compressFrontScript,
+  //   additionalTemplateProps: {
+  //     pageTitle: 'got to code'
+  //   }
+  // });
 }
