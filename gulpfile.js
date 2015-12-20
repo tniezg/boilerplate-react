@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-11-07 23:10:39
+ * @Last Modified time: 2015-12-20 19:24:58
  */
 
 'use strict';
@@ -42,12 +42,9 @@ var template = require('gulp-template');
 var chokidar = require('chokidar');
 var batchServerReload;
 
-var serverStartPromise;
-var serverProcess;
 var sourcePath = 'source';
 var distPath = 'deploy';
-var serverReadyTouchPath = './deploy/on-server-ready';
-var serverEntryFileName = 'server.js';
+var serverEntryFilePath = './deploy/server.js';
 var rawSourceFilesToDeploy = [
   sourcePath + '/**/*',
   '!' + sourcePath + '/{scripts,scripts/**}',// process all js files using Babel
@@ -161,96 +158,88 @@ function openSite(){
 
 
 ///////////////////////////////////////////////////////////////////////////
-serverStartPromise = null;// crude solution
+var serverStartPromise = null;// crude solution
+var serverStopPromise = null;
+var serverInstance = null;
+
 function serverStart(){
-  var defer;
-  var childProcess;
 
   if(serverStartPromise){
+
     return serverStartPromise;
   }else{
-    defer = Q.defer();
+    var serverCreator = require('server-creator');
+    var startDefer = Q.defer();
 
-    logger.log('starting node server', {
-      color: 'red'
-    });
+    serverStartPromise = startDefer;
 
-    childProcess = childP.fork(serverEntryFileName, {cwd: distPath});
-
-    childProcess.on('message', function(message) {
-
-      if(message === 'online'){
-        logger.log('server ready to accept calls, using livereload to reload page');
-
-        serverStartPromise = null;
+    serverInstance = serverCreator.create({
+      path: serverEntryFilePath,
+      cwd: distPath,
+      onOnline: function(instance){
+        logger.log('server is ready to accept calls', {color: 'red'});
 
         livereload.reload();
 
-        defer.resolve(childProcess);
+        serverStartPromise = null;
+        startDefer.resolve();
+      },
+      onOffline: function(){
+        logger.log('server stopped', {color: 'red'});
+
+        var stopDefer = serverStopPromise;
+
+        serverStartPromise = null;
+        serverInstance = null;
+        serverStopPromise = null;
+
+        //if there is something wrong with the server, startDefer.resolve won't 
+        //happen and later stopDefer won't be assigned. if startDefer.resolve 
+        //DOES happen, startDefer.reject() command will do nothing which is fine.
+        if(stopDefer){
+          stopDefer.resolve();
+        }
+        startDefer.reject();
       }
     });
 
-    childProcess.on('close', function (code, signal) {
-      logger.log('child process exited with code ' + code + ' and signal '+signal, {color: 'red'});
+    return startDefer.promise;
+  }
+}
 
-      serverStartPromise = null;
+function serverStop(){
+  logger.log('stopping server', {color: 'red'});
 
-      defer.reject();
-    });
+  if(serverStopPromise){
+    return serverStopPromise;
+  }else{
+    var defer = Q.defer();
 
-    serverStartPromise = defer.promise;
+    if(serverInstance){
+      serverStopPromise = defer;
+      serverInstance.destroy();
+    }else{
+      //do not assign to serverStopPromise, as serverStopPromise won't be set 
+      //to null later (it's immediately null)
+      defer.resolve();
+    }
 
     return defer.promise;
   }
 }
 
-function serverStop(process){
-  var defer = Q.defer();
-
-  logger.log('stopping server', {color: 'red'});
-
-  process.on('close', function (code, signal) {
-    logger.log('server stopped', {color: 'red'});
-
-    defer.resolve();
-  });
-
-  process.kill('SIGINT');
-
-  return defer.promise;
-}
-
 function serverReloadBatch(events, unlockCallback){
   logger.log('\n┬─┐┌─┐┬  ┌─┐┌─┐┌┬┐┬┌┐┌┌─┐  ┌─┐┌─┐┬─┐┬  ┬┌─┐┬─┐\n├┬┘├┤ │  │ │├─┤ │││││││ ┬  └─┐├┤ ├┬┘└┐┌┘├┤ ├┬┘\n┴└─└─┘┴─┘└─┘┴ ┴─┴┘┴┘└┘└─┘  └─┘└─┘┴└─ └┘ └─┘┴└─', {color: 'red'});
 
-  if(serverProcess !== null){
-    return serverStop(serverProcess)
-      .then(function(){
-        serverProcess = null;
-
-        return serverStart();
-      }, function(){
-        serverProcess = null;
-
-        return serverStart();
-      })
-      .then(function(process){
-        serverProcess = process;
-
-        logger.log('server reloaded', {color: 'red'});
-      })
-      .then(playReloadSound, playReloadSound)
-      .then(unlockCallback, unlockCallback);
-  }else{
-    return serverStart()
-      .then(function(process){
-        serverProcess = process;
-
-        logger.log('server reloaded', {color: 'red'});
-      })
-      .then(playReloadSound, playReloadSound)
-      .then(unlockCallback, unlockCallback);
-  }
+  return serverStop()
+    .then(function(){
+      return serverStart();
+    })
+    .then(function(){
+      logger.log('server reloaded', {color: 'red'});
+    })
+    .then(playReloadSound, playReloadSound)
+    .then(unlockCallback, unlockCallback);
 }
 
 batchServerReload = batch({timeout: 500}, serverReloadBatch);
@@ -495,11 +484,10 @@ gulp.task('deploy', gulp.series(
   )
 ));
 
-serverProcess = null;
 gulp.task('serve', function(next){
 
   serverStart()
-    .then(function(process){
+    .then(function(){
       var rawCopyWatcher;
       var stylesWatcher;
       var browserifyScriptsWatcher;
@@ -514,8 +502,6 @@ gulp.task('serve', function(next){
           tasks(cb);
         });
       }
-
-      serverProcess = process;
 
       livereload.listen();
 

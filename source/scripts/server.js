@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-12-12 22:04:03
+ * @Last Modified time: 2015-12-20 19:17:44
  */
 'use strict';
 
@@ -17,55 +17,35 @@ require('source-map-support').install();
 
 configuration = determineConfiguration();
 
-function listenToShutdownMessageIfChild(){
+// function launchApp(app, port, host, afterLaunch){
+//   let server = app.listen(port, host, function () {
+//     let host = server.address().address;
+//     let port = server.address().port;
 
-  if(isChildProcess){
-    process.on('message', function(message) {
-      logger.log('server shutdown');
+//     logger.log('listening at http://' + host + ':' + port);
 
-      if (message === 'shutdown') {
-        process.exit(1);
-      }
-    });
-  }
-}
+//     afterLaunch();
+//   });
+// }
 
-function launchApp(app, port, host, afterLaunch){
-  let server = app.listen(port, host, function () {
-    let host = server.address().address;
-    let port = server.address().port;
+// function addErrorRoute(app){
+//   // this route is not specific to react but useful
+//   app.use(function(error, request, response, next) {
+//     console.error(error.stack);
+//     response.status(500);
+//     response.render('server-error.handlebars', {
+//       error: error
+//     });
+//   });
+// }
 
-    logger.log('listening at http://' + host + ':' + port);
+// function setupRest(app, port, host){
+//     addErrorRoute(app);
 
-    afterLaunch();
-  });
-}
-
-function addErrorRoute(app){
-  // this route is not specific to react but useful
-  app.use(function(error, request, response, next) {
-    console.error(error.stack);
-    response.status(500);
-    response.render('server-error.handlebars', {
-      error: error
-    });
-  });
-}
-
-function sendOnlineMessageIfChild(){
-
-  if(isChildProcess){
-    process.send('online');
-  }
-}
-
-function setupRest(app, port, host){
-    addErrorRoute(app);
-
-    launchApp(app, port, host, function(){
-      sendOnlineMessageIfChild();
-    });
-  }
+//     launchApp(app, port, host, function(){
+//       sendOnlineMessageIfChild();
+//     });
+//   }
 
 if(configuration === null){
   throw new Error(
@@ -74,48 +54,49 @@ if(configuration === null){
     ' running the server'
   );
 }else{
-  let serverLogger;
-  let express;
-  let app;
-  let exphbs;
-  let assemble;
-  let serverPropsGenerator;
+  // let serverLogger;
+  // let express;
+  // let app;
+  // let exphbs;
+  // let assemble;
+  // let serverPropsGenerator;
+  let serverCreator = require('server-creator');
 
-  listenToShutdownMessageIfChild();
+  // listenToShutdownMessageIfChild();
 
-  serverLogger = require('morgan');
-  express = require('express');
-  app = express();
-  exphbs  = require('express-handlebars');
+  // serverLogger = require('morgan');
+  // express = require('express');
+  // app = express();
+  // exphbs  = require('express-handlebars');
 
-  // views and templates setup
-  app.set('views', __dirname + '/../views');
-  app.engine('handlebars', exphbs());
-  app.set('view engine', 'handlebars');
+  // // views and templates setup
+  // app.set('views', __dirname + '/../views');
+  // app.engine('handlebars', exphbs());
+  // app.set('view engine', 'handlebars');
 
-  app.use(serverLogger('dev'));
-  app.use(express.static('public'));
+  // app.use(serverLogger('dev'));
+  // app.use(express.static('public'));
 
-  assemble = require('react-router-assembly');
+  // assembly = require('react-router-assembly');
 
-  serverPropsGenerator = require('./routing/serverPropsGenerator');
+  // serverPropsGenerator = require('./routing/serverPropsGenerator');
 
-  assemble.build({
-    clientPropsPath: './routing/clientProps',
-    routesElementPath: './routing/routes',
-    isomorphicLogicPath: './routing/isomorphicLogic',
-    extraCompress: process.env.NODE_ENV,
-    templatePath: '../views/react-page.handlebars',
-    mode: process.env.NODE_ENV === 'production'?assembly.modes.BUILD:assembly.modes.BUILD_AND_WATCH,
-    onChange: function(){
-      console.log('scripts changed');
-    },
-    onUpdate: function(attach){
-      console.log('scripts updated');
+  // assembly.build({
+  //   clientPropsPath: './routing/clientProps',
+  //   routesElementPath: './routing/routes',
+  //   isomorphicLogicPath: './routing/isomorphicLogic',
+  //   extraCompress: process.env.NODE_ENV,
+  //   templatePath: '../views/react-page.handlebars',
+  //   mode: process.env.NODE_ENV === 'production'?assembly.modes.BUILD:assembly.modes.BUILD_AND_WATCH,
+  //   onChange: function(){
+  //     console.log('scripts changed');
+  //   },
+  //   onUpdate: function(attach){
+  //     console.log('scripts updated');
 
-      restartServer();
-    }
-  });
+  //     restartServer();
+  //   }
+  // });
 
   // assemble({
   //   app: app,
@@ -130,4 +111,7 @@ if(configuration === null){
   //     pageTitle: 'got to code'
   //   }
   // });
+  // 
+ 
+  serverCreator.serverReady(process);
 }
