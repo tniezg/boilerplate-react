@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-12-21 00:33:31
+ * @Last Modified time: 2015-12-21 13:45:28
  */
 
 'use strict';
@@ -30,7 +30,6 @@ var fs = require('fs');
 var determineConfiguration = require('determine-configuration');
 var open = require('gulp-open');
 var cache = require('gulp-cached');
-var browserifyInc = require('browserify-incremental');
 var _ = require('lodash');
 var sfx = require("sfx");
 var sprity = require('sprity');
@@ -345,21 +344,12 @@ function buildFrontScripts(cb){
       cb();
     }
   });
-  // var browserifyInstance = browserify(
-  //   browserifySourceScriptEntry, 
-  //   _.assign({}, browserifyInc.args, {debug: true})
-  // );
+  
 
-  // browserifyInc(browserifyInstance, {cacheFile: gulpTemporaryFilesPath + '/browserify-cache.json'});
 
   // return browserifyInstance
   //   .transform(babelify)
   //   .transform(browserifyShim)
-  //   .bundle()
-  //   .on('error', swallowError)
-  //   .pipe(exorcist(browserifySourceMapPath, browserifySourceMapUrl))
-  //   .pipe(source(browserifyDeployScriptFileName))
-  //   .pipe(buffer())
   //   .pipe(gulp.dest(browserifyDeployScriptPath))
   //   .pipe(bust(bustConfig))
   //   .pipe(gulp.dest(temporaryCacheBustingHashesPath));
@@ -559,54 +549,28 @@ gulp.task('serve', function(next){
 
       logger.log('watching server scripts');
 
-
-
-
-
-
-
-      
-
       assembly.build({
-        clientPropsPath: './routing/clientProps',
-        routesElementPath: './routing/routes',
-        isomorphicLogicPath: './routing/isomorphicLogic',
+        cwd: 'deploy',
+        clientPropsPath: './scripts/routing/clientProps',
+        routesElementPath: './scripts/routing/routes',
+        isomorphicLogicPath: './scripts/routing/isomorphicLogic',
         extraCompress: process.env.NODE_ENV,
-        publicGeneratedFilesDirectory: 'deploy/.react-router-assembly',
         mode: assembly.modes.BUILD_AND_WATCH,//currently, only WATCH is not available
-        // CWD???? check where generated bundle gets created, need control over this
+        publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
         onUpdate: function(){
           serverReload();
         }
       });
 
-
-      
-
-      // browserifyScriptsWatcher = chokidar.watch(browserifyScriptsSourceFilesToDeploy, {ignoreInitial: true});
-      // batchBrowserifyScripts = batchTasks(gulp.series(
-      //   // buildFrontScripts, 
       //   // gulp.series([performCacheBusting, addBustingKeysToHtml]),
-      //   // reloadBrowserifyScripts,
-      //   // playReloadSound
-      //   function(cb){
-      //     serverReload();
-      //     cb();
-      //   }
-      // ));
-      // browserifyScriptsWatcher.on('all', function(eventType, relativePath){
-      //   syncRemovedFilesInDeploy(eventType, relativePath);
 
-                                                                            //   //assume that if scripts don't require something that was removed, 
-                                                                            //   //only a refresh is needed without new Browserify bundling
-      //   serverReload();
-      // });
+      browserifyScriptsWatcher.on('all', function(eventType, relativePath){
+        syncRemovedFilesInDeploy(eventType, relativePath);
 
-
-
-
-
-
+        //assume that if scripts don't require something that was removed, 
+        //only a refresh is needed without new Browserify bundling
+        serverReload();
+      });
 
       logger.log('watching front-end-only scripts files in source');
 
