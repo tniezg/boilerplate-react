@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-12-20 19:24:58
+ * @Last Modified time: 2015-12-21 00:33:31
  */
 
 'use strict';
@@ -40,6 +40,7 @@ var bust = require('gulp-buster');
 var rename = require('gulp-rename');
 var template = require('gulp-template');
 var chokidar = require('chokidar');
+var assembly = require('react-router-assembly');
 var batchServerReload;
 
 var sourcePath = 'source';
@@ -331,25 +332,37 @@ function buildSprites(cb){
   }
 }
 
-function buildFrontScripts(){
-  var browserifyInstance = browserify(
-    browserifySourceScriptEntry, 
-    _.assign({}, browserifyInc.args, {debug: true})
-  );
+function buildFrontScripts(cb){
+  assembly.build({
+    cwd: 'deploy',
+    clientPropsPath: './scripts/routing/clientProps',
+    routesElementPath: './scripts/routing/routes',
+    isomorphicLogicPath: './scripts/routing/isomorphicLogic',
+    extraCompress: process.env.NODE_ENV,
+    mode: assembly.modes.BUILD,//currently, only WATCH is not available
+    publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+    onUpdate: function(){
+      cb();
+    }
+  });
+  // var browserifyInstance = browserify(
+  //   browserifySourceScriptEntry, 
+  //   _.assign({}, browserifyInc.args, {debug: true})
+  // );
 
-  browserifyInc(browserifyInstance, {cacheFile: gulpTemporaryFilesPath + '/browserify-cache.json'});
+  // browserifyInc(browserifyInstance, {cacheFile: gulpTemporaryFilesPath + '/browserify-cache.json'});
 
-  return browserifyInstance
-    .transform(babelify)
-    .transform(browserifyShim)
-    .bundle()
-    .on('error', swallowError)
-    .pipe(exorcist(browserifySourceMapPath, browserifySourceMapUrl))
-    .pipe(source(browserifyDeployScriptFileName))
-    .pipe(buffer())
-    .pipe(gulp.dest(browserifyDeployScriptPath))
-    .pipe(bust(bustConfig))
-    .pipe(gulp.dest(temporaryCacheBustingHashesPath));
+  // return browserifyInstance
+  //   .transform(babelify)
+  //   .transform(browserifyShim)
+  //   .bundle()
+  //   .on('error', swallowError)
+  //   .pipe(exorcist(browserifySourceMapPath, browserifySourceMapUrl))
+  //   .pipe(source(browserifyDeployScriptFileName))
+  //   .pipe(buffer())
+  //   .pipe(gulp.dest(browserifyDeployScriptPath))
+  //   .pipe(bust(bustConfig))
+  //   .pipe(gulp.dest(temporaryCacheBustingHashesPath));
 }
 
 function playReloadSound(){
@@ -469,16 +482,16 @@ gulp.task('sound-check', function(){
  */
 gulp.task('deploy', gulp.series(
   removeDeploy,
+  copyOverToDeploy,
   gulp.parallel(
-    copyOverToDeploy,
     gulp.series(
       buildSprites,
       buildStyles,
       gulp.series([/*performCacheBusting, */addBustingKeysToHtml])
     ),
     gulp.series(
-      buildServerSideScripts//,
-      // buildFrontScripts,
+      buildServerSideScripts,
+      buildFrontScripts//,
       // gulp.series([performCacheBusting, addBustingKeysToHtml])
     )
   )
@@ -490,12 +503,10 @@ gulp.task('serve', function(next){
     .then(function(){
       var rawCopyWatcher;
       var stylesWatcher;
-      var browserifyScriptsWatcher;
       var componentsWatcher;
       var serverScriptsWatcher;
       var spriteWatcher;
       var batchServerScripts;
-      var batchBrowserifyScripts;
 
       function batchTasks(tasks){
         return batch({timeout: 300}, function(events, cb){
@@ -534,8 +545,6 @@ gulp.task('serve', function(next){
       serverScriptsWatcher = chokidar.watch(serverScriptsSourceFilesToDeploy, {ignoreInitial: true});
       batchServerScripts = batchTasks(gulp.series(
         buildServerSideScripts,
-        // buildFrontScripts,
-        // gulp.series([performCacheBusting, addBustingKeysToHtml]),
         function(cb){
           serverReload();//usually, the server doesn't need to be reloaded but here it does
           cb();
@@ -550,22 +559,54 @@ gulp.task('serve', function(next){
 
       logger.log('watching server scripts');
 
-      browserifyScriptsWatcher = chokidar.watch(browserifyScriptsSourceFilesToDeploy, {ignoreInitial: true});
-      batchBrowserifyScripts = batchTasks(gulp.series(
-        // buildFrontScripts, 
-        // gulp.series([performCacheBusting, addBustingKeysToHtml]),
-        // reloadBrowserifyScripts,
-        // playReloadSound
-        function(cb){
-          serverReload();
-          cb();
-        }
-      ));
-      browserifyScriptsWatcher.on('all', function(eventType, relativePath){
-        syncRemovedFilesInDeploy(eventType, relativePath);
 
-        batchBrowserifyScripts();
+
+
+
+
+
+      
+
+      assembly.build({
+        clientPropsPath: './routing/clientProps',
+        routesElementPath: './routing/routes',
+        isomorphicLogicPath: './routing/isomorphicLogic',
+        extraCompress: process.env.NODE_ENV,
+        publicGeneratedFilesDirectory: 'deploy/.react-router-assembly',
+        mode: assembly.modes.BUILD_AND_WATCH,//currently, only WATCH is not available
+        // CWD???? check where generated bundle gets created, need control over this
+        onUpdate: function(){
+          serverReload();
+        }
       });
+
+
+      
+
+      // browserifyScriptsWatcher = chokidar.watch(browserifyScriptsSourceFilesToDeploy, {ignoreInitial: true});
+      // batchBrowserifyScripts = batchTasks(gulp.series(
+      //   // buildFrontScripts, 
+      //   // gulp.series([performCacheBusting, addBustingKeysToHtml]),
+      //   // reloadBrowserifyScripts,
+      //   // playReloadSound
+      //   function(cb){
+      //     serverReload();
+      //     cb();
+      //   }
+      // ));
+      // browserifyScriptsWatcher.on('all', function(eventType, relativePath){
+      //   syncRemovedFilesInDeploy(eventType, relativePath);
+
+                                                                            //   //assume that if scripts don't require something that was removed, 
+                                                                            //   //only a refresh is needed without new Browserify bundling
+      //   serverReload();
+      // });
+
+
+
+
+
+
 
       logger.log('watching front-end-only scripts files in source');
 
