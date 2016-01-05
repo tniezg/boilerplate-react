@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-12-21 14:57:32
+ * @Last Modified time: 2016-01-05 14:26:10
  */
 'use strict';
 
@@ -17,36 +17,6 @@ require('source-map-support').install();
 
 configuration = determineConfiguration();
 
-// function launchApp(app, port, host, afterLaunch){
-//   let server = app.listen(port, host, function () {
-//     let host = server.address().address;
-//     let port = server.address().port;
-
-//     logger.log('listening at http://' + host + ':' + port);
-
-//     afterLaunch();
-//   });
-// }
-
-// function addErrorRoute(app){
-//   // this route is not specific to react but useful
-//   app.use(function(error, request, response, next) {
-//     console.error(error.stack);
-//     response.status(500);
-//     response.render('server-error.handlebars', {
-//       error: error
-//     });
-//   });
-// }
-
-// function setupRest(app, port, host){
-//     addErrorRoute(app);
-
-//     launchApp(app, port, host, function(){
-//       sendOnlineMessageIfChild();
-//     });
-//   }
-
 if(configuration === null){
   throw new Error(
     'CONFIGURATION_FILE_PATH system variable pointing to module' + 
@@ -54,19 +24,26 @@ if(configuration === null){
     ' running the server'
   );
 }else{
-  // let serverLogger;
-  // let serverPropsGenerator;
   let express = require('express');
   let app = express();
   let assembly = require('react-router-assembly');
   let control = require('server-creator');
-
-  let routesElementPath = './routing/routes';
-  let isomorphicLogicPath = './routing/isomorphicLogic';
+  let routingModulesDirectory = './scripts';
+  let paths = {
+    routesElementPath: routingModulesDirectory + '/routing/routes',
+    isomorphicLogicPath: routingModulesDirectory + '/routing/isomorphicLogic',
+    serverPropsGeneratorPath: routingModulesDirectory + '/routing/serverPropsGenerator'
+  };
 
   function setupRest(){
     let exphbs;
+    let serverLogger;
 
+    // Express requests logging
+    serverLogger = require('morgan');
+    app.use(serverLogger('dev'));
+
+    // The following code is primarily for the error handling template
     app.set('views', __dirname + '/views');
     exphbs = require('express-handlebars');
     app.engine('handlebars', exphbs());
@@ -93,27 +70,16 @@ if(configuration === null){
     });
   }
 
-  // serverLogger = require('morgan');
-  // exphbs  = require('express-handlebars');
-
-  // // views and templates setup
-  // app.set('views', __dirname + '/../views');
-  // app.engine('handlebars', exphbs());
-  // app.set('view engine', 'handlebars');
-
-  // app.use(serverLogger('dev'));
-  // app.use(express.static('public'));
-
   assembly.attach({
     app: app,
-    routesElementPath: routesElementPath,
-    serverPropsGeneratorPath: './routing/serverPropsGenerator',
-    isomorphicLogicPath: isomorphicLogicPath,
+    routesElementPath: paths.routesElementPath,
+    serverPropsGeneratorPath: paths.serverPropsGenerator,
+    isomorphicLogicPath: paths.isomorphicLogicPath,
 
-    onComplete: setupRest//,
-    // templatePath: './views/react-page.handlebars',
-    // additionalTemplateProps: {
-    //   pageTitle: 'got to code'
-    // }
+    onComplete: setupRest,
+    templatePath: './views/react-page.handlebars',
+    additionalTemplateProps: {
+      pageTitle: 'React Boilerplate Title'
+    }
   });
 }
