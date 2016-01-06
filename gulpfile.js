@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-11-07 23:10:39
+ * @Last Modified time: 2015-12-21 13:45:28
  */
 
 'use strict';
@@ -30,7 +30,6 @@ var fs = require('fs');
 var determineConfiguration = require('determine-configuration');
 var open = require('gulp-open');
 var cache = require('gulp-cached');
-var browserifyInc = require('browserify-incremental');
 var _ = require('lodash');
 var sfx = require("sfx");
 var sprity = require('sprity');
@@ -40,14 +39,12 @@ var bust = require('gulp-buster');
 var rename = require('gulp-rename');
 var template = require('gulp-template');
 var chokidar = require('chokidar');
+var assembly = require('react-router-assembly');
 var batchServerReload;
 
-var serverStartPromise;
-var serverProcess;
 var sourcePath = 'source';
 var distPath = 'deploy';
-var serverReadyTouchPath = './deploy/on-server-ready';
-var serverEntryFileName = 'server.js';
+var serverEntryFilePath = './deploy/server.js';
 var rawSourceFilesToDeploy = [
   sourcePath + '/**/*',
   '!' + sourcePath + '/{scripts,scripts/**}',// process all js files using Babel
@@ -161,96 +158,88 @@ function openSite(){
 
 
 ///////////////////////////////////////////////////////////////////////////
-serverStartPromise = null;// crude solution
+var serverStartPromise = null;// crude solution
+var serverStopPromise = null;
+var serverInstance = null;
+
 function serverStart(){
-  var defer;
-  var childProcess;
 
   if(serverStartPromise){
+
     return serverStartPromise;
   }else{
-    defer = Q.defer();
+    var serverCreator = require('server-creator');
+    var startDefer = Q.defer();
 
-    logger.log('starting node server', {
-      color: 'red'
-    });
+    serverStartPromise = startDefer;
 
-    childProcess = childP.fork(serverEntryFileName, {cwd: distPath});
-
-    childProcess.on('message', function(message) {
-
-      if(message === 'online'){
-        logger.log('server ready to accept calls, using livereload to reload page');
-
-        serverStartPromise = null;
+    serverInstance = serverCreator.create({
+      path: serverEntryFilePath,
+      cwd: distPath,
+      onOnline: function(instance){
+        logger.log('server is ready to accept calls', {color: 'red'});
 
         livereload.reload();
 
-        defer.resolve(childProcess);
+        serverStartPromise = null;
+        startDefer.resolve();
+      },
+      onOffline: function(){
+        logger.log('server stopped', {color: 'red'});
+
+        var stopDefer = serverStopPromise;
+
+        serverStartPromise = null;
+        serverInstance = null;
+        serverStopPromise = null;
+
+        //if there is something wrong with the server, startDefer.resolve won't 
+        //happen and later stopDefer won't be assigned. if startDefer.resolve 
+        //DOES happen, startDefer.reject() command will do nothing which is fine.
+        if(stopDefer){
+          stopDefer.resolve();
+        }
+        startDefer.reject();
       }
     });
 
-    childProcess.on('close', function (code, signal) {
-      logger.log('child process exited with code ' + code + ' and signal '+signal, {color: 'red'});
+    return startDefer.promise;
+  }
+}
 
-      serverStartPromise = null;
+function serverStop(){
+  logger.log('stopping server', {color: 'red'});
 
-      defer.reject();
-    });
+  if(serverStopPromise){
+    return serverStopPromise;
+  }else{
+    var defer = Q.defer();
 
-    serverStartPromise = defer.promise;
+    if(serverInstance){
+      serverStopPromise = defer;
+      serverInstance.destroy();
+    }else{
+      //do not assign to serverStopPromise, as serverStopPromise won't be set 
+      //to null later (it's immediately null)
+      defer.resolve();
+    }
 
     return defer.promise;
   }
 }
 
-function serverStop(process){
-  var defer = Q.defer();
-
-  logger.log('stopping server', {color: 'red'});
-
-  process.on('close', function (code, signal) {
-    logger.log('server stopped', {color: 'red'});
-
-    defer.resolve();
-  });
-
-  process.kill('SIGINT');
-
-  return defer.promise;
-}
-
 function serverReloadBatch(events, unlockCallback){
   logger.log('\n┬─┐┌─┐┬  ┌─┐┌─┐┌┬┐┬┌┐┌┌─┐  ┌─┐┌─┐┬─┐┬  ┬┌─┐┬─┐\n├┬┘├┤ │  │ │├─┤ │││││││ ┬  └─┐├┤ ├┬┘└┐┌┘├┤ ├┬┘\n┴└─└─┘┴─┘└─┘┴ ┴─┴┘┴┘└┘└─┘  └─┘└─┘┴└─ └┘ └─┘┴└─', {color: 'red'});
 
-  if(serverProcess !== null){
-    return serverStop(serverProcess)
-      .then(function(){
-        serverProcess = null;
-
-        return serverStart();
-      }, function(){
-        serverProcess = null;
-
-        return serverStart();
-      })
-      .then(function(process){
-        serverProcess = process;
-
-        logger.log('server reloaded', {color: 'red'});
-      })
-      .then(playReloadSound, playReloadSound)
-      .then(unlockCallback, unlockCallback);
-  }else{
-    return serverStart()
-      .then(function(process){
-        serverProcess = process;
-
-        logger.log('server reloaded', {color: 'red'});
-      })
-      .then(playReloadSound, playReloadSound)
-      .then(unlockCallback, unlockCallback);
-  }
+  return serverStop()
+    .then(function(){
+      return serverStart();
+    })
+    .then(function(){
+      logger.log('server reloaded', {color: 'red'});
+    })
+    .then(playReloadSound, playReloadSound)
+    .then(unlockCallback, unlockCallback);
 }
 
 batchServerReload = batch({timeout: 500}, serverReloadBatch);
@@ -342,25 +331,28 @@ function buildSprites(cb){
   }
 }
 
-function buildFrontScripts(){
-  var browserifyInstance = browserify(
-    browserifySourceScriptEntry, 
-    _.assign({}, browserifyInc.args, {debug: true})
-  );
+function buildFrontScripts(cb){
+  assembly.build({
+    cwd: 'deploy',
+    clientPropsPath: './scripts/routing/clientProps',
+    routesElementPath: './scripts/routing/routes',
+    isomorphicLogicPath: './scripts/routing/isomorphicLogic',
+    extraCompress: process.env.NODE_ENV,
+    mode: assembly.modes.BUILD,//currently, only WATCH is not available
+    publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+    onUpdate: function(){
+      cb();
+    }
+  });
+  
 
-  browserifyInc(browserifyInstance, {cacheFile: gulpTemporaryFilesPath + '/browserify-cache.json'});
 
-  return browserifyInstance
-    .transform(babelify)
-    .transform(browserifyShim)
-    .bundle()
-    .on('error', swallowError)
-    .pipe(exorcist(browserifySourceMapPath, browserifySourceMapUrl))
-    .pipe(source(browserifyDeployScriptFileName))
-    .pipe(buffer())
-    .pipe(gulp.dest(browserifyDeployScriptPath))
-    .pipe(bust(bustConfig))
-    .pipe(gulp.dest(temporaryCacheBustingHashesPath));
+  // return browserifyInstance
+  //   .transform(babelify)
+  //   .transform(browserifyShim)
+  //   .pipe(gulp.dest(browserifyDeployScriptPath))
+  //   .pipe(bust(bustConfig))
+  //   .pipe(gulp.dest(temporaryCacheBustingHashesPath));
 }
 
 function playReloadSound(){
@@ -480,42 +472,37 @@ gulp.task('sound-check', function(){
  */
 gulp.task('deploy', gulp.series(
   removeDeploy,
+  copyOverToDeploy,
   gulp.parallel(
-    copyOverToDeploy,
     gulp.series(
       buildSprites,
       buildStyles,
       gulp.series([/*performCacheBusting, */addBustingKeysToHtml])
     ),
     gulp.series(
-      buildServerSideScripts//,
-      // buildFrontScripts,
+      buildServerSideScripts,
+      buildFrontScripts//,
       // gulp.series([performCacheBusting, addBustingKeysToHtml])
     )
   )
 ));
 
-serverProcess = null;
 gulp.task('serve', function(next){
 
   serverStart()
-    .then(function(process){
+    .then(function(){
       var rawCopyWatcher;
       var stylesWatcher;
-      var browserifyScriptsWatcher;
       var componentsWatcher;
       var serverScriptsWatcher;
       var spriteWatcher;
       var batchServerScripts;
-      var batchBrowserifyScripts;
 
       function batchTasks(tasks){
         return batch({timeout: 300}, function(events, cb){
           tasks(cb);
         });
       }
-
-      serverProcess = process;
 
       livereload.listen();
 
@@ -548,8 +535,6 @@ gulp.task('serve', function(next){
       serverScriptsWatcher = chokidar.watch(serverScriptsSourceFilesToDeploy, {ignoreInitial: true});
       batchServerScripts = batchTasks(gulp.series(
         buildServerSideScripts,
-        // buildFrontScripts,
-        // gulp.series([performCacheBusting, addBustingKeysToHtml]),
         function(cb){
           serverReload();//usually, the server doesn't need to be reloaded but here it does
           cb();
@@ -564,21 +549,27 @@ gulp.task('serve', function(next){
 
       logger.log('watching server scripts');
 
-      browserifyScriptsWatcher = chokidar.watch(browserifyScriptsSourceFilesToDeploy, {ignoreInitial: true});
-      batchBrowserifyScripts = batchTasks(gulp.series(
-        // buildFrontScripts, 
-        // gulp.series([performCacheBusting, addBustingKeysToHtml]),
-        // reloadBrowserifyScripts,
-        // playReloadSound
-        function(cb){
+      assembly.build({
+        cwd: 'deploy',
+        clientPropsPath: './scripts/routing/clientProps',
+        routesElementPath: './scripts/routing/routes',
+        isomorphicLogicPath: './scripts/routing/isomorphicLogic',
+        extraCompress: process.env.NODE_ENV,
+        mode: assembly.modes.BUILD_AND_WATCH,//currently, only WATCH is not available
+        publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+        onUpdate: function(){
           serverReload();
-          cb();
         }
-      ));
+      });
+
+      //   // gulp.series([performCacheBusting, addBustingKeysToHtml]),
+
       browserifyScriptsWatcher.on('all', function(eventType, relativePath){
         syncRemovedFilesInDeploy(eventType, relativePath);
 
-        batchBrowserifyScripts();
+        //assume that if scripts don't require something that was removed, 
+        //only a refresh is needed without new Browserify bundling
+        serverReload();
       });
 
       logger.log('watching front-end-only scripts files in source');

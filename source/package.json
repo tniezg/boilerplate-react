@@ -21,11 +21,12 @@
     "lodash": "^3.10.1",
     "morgan": "^1.6.1",
     "plain-logger": "^0.8.0",
-    "react": "^0.14.2",
-    "react-dom": "^0.14.2",
-    "react-router": "^0.13.5",
-    "react-router-assembly": "^0.6.0",
+    "react": "^0.14.0",
+    "react-dom": "^0.14.0",
+    "react-router": "^1.0.0-rc3",
+    "react-router-assembly": "^0.10.0",
     "serializable-key-set": "^0.1.0",
+    "server-creator": "0.0.1",
     "source-map-support": "^0.3.3"
   },
   "devDependencies": {
