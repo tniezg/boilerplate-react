@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2015-12-21 13:45:28
+ * @Last Modified time: 2016-01-07 02:26:49
  */
 
 'use strict';
@@ -72,8 +72,8 @@ var sourceGraphicsSpritesPath = sourcePath + '/public/graphics/sprites';
 var spritesDeployPath = 'deploy/public/graphics/sprites';
 var gulpTemporaryFilesPath = '.gulp-temp';
 var temporarySpriteSassPath = gulpTemporaryFilesPath + '/scss';
-var temporaryCacheBustingHashesPath = gulpTemporaryFilesPath + '/bust/';
-var temporaryCacheBustingHashesFilename = 'bust.json';
+// var temporaryCacheBustingHashesPath = gulpTemporaryFilesPath + '/bust';
+// var temporaryCacheBustingHashesFilename = 'bust.json';
 var sourceSpriteStylePath = temporarySpriteSassPath;
 var sourceGraphicsSpritesDefinitionFile = '_sprity-definition.scss';
 var spritesSourceFilesToDeploy = sourcePath + '/public/graphics/sprites/**/*.{png,jpg}';
@@ -82,46 +82,30 @@ var reloadSoundPath = 'alert-2.wav';
 var errorSoundPath = 'alert-1.wav';
 var cacheBustingTemplateFilesSource = sourcePath + '/views/**/*.{handlebars,html}';
 var cacheBustingTemplateFilesDeploy = distPath + '/views/';
+var busts = {};
 
-var bustConfig = {
-  fileName: temporaryCacheBustingHashesFilename,
-  algo: function(vinylFile){
-    var relativeFilePath = path.relative(vinylFile.cwd, vinylFile.path);
-    var busters = JSON.parse(fs.readFileSync(
-      temporaryCacheBustingHashesPath + temporaryCacheBustingHashesFilename, 
-      "utf8"
-    ));
-    var bust = busters[relativeFilePath];
-    var oldFilePath;
+// var bustConfig = {
+//   fileName: temporaryCacheBustingHashesFilename,
+//   algo: function(vinylFile){
+//     var relativeFilePath = path.relative(vinylFile.cwd, vinylFile.path);
+//     var busters = readJsonSync(temporaryCacheBustingHashesPath + '/' + temporaryCacheBustingHashesFilename);
+//     var bust = busters[relativeFilePath];
+//     var oldFilePath;
 
-    if(typeof bust !== 'undefined'){
-      oldFilePath = path.dirname(relativeFilePath) + '/' + 
-        path.basename(relativeFilePath, path.extname(relativeFilePath)) + '-' + 
-        bust + path.extname(relativeFilePath);
+//     if(typeof bust !== 'undefined'){
+//       oldFilePath = path.dirname(relativeFilePath) + '/' + 
+//         path.basename(relativeFilePath, path.extname(relativeFilePath)) + '-' + 
+//         bust + path.extname(relativeFilePath);
 
-      del(oldFilePath);
-    }
+//       del(oldFilePath);
+//     }
 
-    return require("crypto")
-      .createHash("md5")
-      .update(vinylFile.contents)
-      .digest("hex");
-  }
-};
-
-// creates bust file so it always exists and is empty on every gulp task start
-try{
-  fs.statSync(temporaryCacheBustingHashesPath);
-}catch(err){
-
-  if(err && err.code == 'ENOENT'){
-    var mkdirp = require('mkdirp');
-
-    mkdirp.sync(temporaryCacheBustingHashesPath);
-  }
-}
-
-fs.writeFileSync(temporaryCacheBustingHashesPath + temporaryCacheBustingHashesFilename, '{}');
+//     return require("crypto")
+//       .createHash("md5")
+//       .update(vinylFile.contents)
+//       .digest("hex");
+//   }
+// };
 
 function swallowError (error) {
   // If you want details of the error in the console
@@ -289,7 +273,43 @@ function syncRemovedFilesInDeploy(eventType, relativePath){
   }
 }
 
+function generateUUID(){
+  var uuid = require('uuid');
+
+  return uuid.v1();
+}
+
+// function changeCache(newValues){
+
+// }
+
+// function getCache(){
+
+// }
+
+// function bustStyles(cb){
+//   var uuid = generateUUID();
+
+
+//   return gulp.src(sassEntryFile)
+//     .pipe(rename({suffix: '.' + uuid}))
+//     .pipe(gulp.dest(cssDestinationDirectory))
+// }
+
+function bustAndRename(uuid, bustsObject, basePathSource, basePathDest){
+  return function(parsedPath){
+    var originalPath;
+    var newPath;
+    
+    originalPath = path.join(parsedPath.dirname, parsedPath.basename + parsedPath.extname);
+    parsedPath.basename += '.' + uuid;
+    newPath = path.join(parsedPath.dirname, parsedPath.basename + parsedPath.extname);
+    bustsObject[path.join(basePathSource, originalPath)] = path.join(basePathDest, newPath);
+  };
+}
+
 function buildStyles(){
+
   return gulp.src(sassEntryFile)
     .pipe(sass({
       includePaths: [temporarySpriteSassPath]
@@ -299,9 +319,15 @@ function buildStyles(){
         browsers: ['last 2 versions'],
         cascade: false
     }))
+    // .pipe(require('./gulp-plugins/rename')())
+    // .pipe(changeCache(uuid))
+    .pipe(rename(bustAndRename(
+      generateUUID(), 
+      busts,
+      'public/styles',
+      'public/styles'
+    )))
     .pipe(gulp.dest(cssDestinationDirectory))
-    .pipe(bust(bustConfig))
-    .pipe(gulp.dest(temporaryCacheBustingHashesPath));
 }
 
 function buildSprites(cb){
@@ -339,9 +365,21 @@ function buildFrontScripts(cb){
     isomorphicLogicPath: './scripts/routing/isomorphicLogic',
     extraCompress: process.env.NODE_ENV,
     mode: assembly.modes.BUILD,//currently, only WATCH is not available
-    publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+    // publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+    publicGeneratedFilesDirectory: '../' + gulpTemporaryFilesPath + '/.react-router-assembly',
     onUpdate: function(){
-      cb();
+
+      // gulp.src(distPath + '/scripts/.react-router-assembly' + '/scripts/main.generated.js')
+      var stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
+        .pipe(rename(bustAndRename(
+          generateUUID(), 
+          busts,
+          'scripts/.react-router-assembly' + '/scripts',
+          'scripts/.react-router-assembly' + '/scripts'
+        )))
+        .pipe(gulp.dest(distPath + '/scripts/.react-router-assembly' + '/scripts'));
+        // should generate in temporary folder and rename to deploy
+      stream.on('finish', cb);
     }
   });
   
@@ -385,59 +423,61 @@ function buildServerSideScripts(){
     .pipe(gulp.dest(serverScriptsDeployPath));
 }
 
-
-function addBustingKeysToHtml(){
-  var busters = JSON.parse(fs.readFileSync(
-    temporaryCacheBustingHashesPath + '/' + temporaryCacheBustingHashesFilename, 
+function readJsonSync(pathToFile){
+  return JSON.parse(fs.readFileSync(
+    pathToFile,
     "utf8"
-  ));
-
-  return gulp.src(cacheBustingTemplateFilesSource)
-    .pipe(template({busters: busters}))
-    .pipe(gulp.dest(cacheBustingTemplateFilesDeploy));
+  ))
 }
 
-function performCacheBusting(done){
-  var busters = JSON.parse(fs.readFileSync(
-    temporaryCacheBustingHashesPath + '/' + temporaryCacheBustingHashesFilename, 
-    "utf8"
-  ));
-  var busterKeyPath;
-  var parallelStreams = [];
-  var renamer;
+// function addBustingKeysToHtml(){
 
-  function createRenamer(fullPath, bust){
+//   return gulp.src(cacheBustingTemplateFilesSource)
+//     .pipe(template({busters: busts}))
+//     .pipe(gulp.dest(cacheBustingTemplateFilesDeploy));
+// }
 
-    return function createRenamerStream(done){
-      logger.log('renaming ' + fullPath);
+// function performCacheBusting(done){
+//   var busters = JSON.parse(fs.readFileSync(
+//     temporaryCacheBustingHashesPath + '/' + temporaryCacheBustingHashesFilename, 
+//     "utf8"
+//   ));
+//   var busterKeyPath;
+//   var parallelStreams = [];
+//   var renamer;
 
-      return gulp.src(fullPath)
-        .on('error', swallowError)
-        .pipe(rename(function(renamePath){
-          var bustedName = path.basename(fullPath, path.extname(fullPath)) + '-' + bust;
+//   function createRenamer(fullPath, bust){
 
-          renamePath.dirname = path.dirname(fullPath);
-          renamePath.basename = bustedName;
-        }))
-        .pipe(gulp.dest('.'));
-    };
-  }
+//     return function createRenamerStream(done){
+//       logger.log('renaming ' + fullPath);
 
-  for(busterKeyPath in busters){
-    logger.log('busting ' + busterKeyPath);
-    renamer = createRenamer(busterKeyPath, busters[busterKeyPath]);
-    parallelStreams.push(renamer);
-  }
+//       return gulp.src(fullPath)
+//         .on('error', swallowError)
+//         .pipe(rename(function(renamePath){
+//           var bustedName = path.basename(fullPath, path.extname(fullPath)) + '-' + bust;
 
-  // for some reason, gulp.parallel(parallelStreams) combined with del(..) 
-  // inside a gulp.series didn't complete, so they were both flattened into
-  // gulp.series. not a huge issue but I should figure out why it fails (
-  // I'm getting a gulp#4 timeout even though all streams/callbacks work).
+//           renamePath.dirname = path.dirname(fullPath);
+//           renamePath.basename = bustedName;
+//         }))
+//         .pipe(gulp.dest('.'));
+//     };
+//   }
 
-  gulp.series.apply(gulp, parallelStreams.concat(function(done){
-    del(Object.keys(busters), done);
-  }))(done);
-}
+//   for(busterKeyPath in busters){
+//     logger.log('busting ' + busterKeyPath);
+//     renamer = createRenamer(busterKeyPath, busters[busterKeyPath]);
+//     parallelStreams.push(renamer);
+//   }
+
+//   // for some reason, gulp.parallel(parallelStreams) combined with del(..) 
+//   // inside a gulp.series didn't complete, so they were both flattened into
+//   // gulp.series. not a huge issue but I should figure out why it fails (
+//   // I'm getting a gulp#4 timeout even though all streams/callbacks work).
+
+//   gulp.series.apply(gulp, parallelStreams.concat(function(done){
+//     del(Object.keys(busters), done);
+//   }))(done);
+// }
 
 function reloadStyles(){
   return gulp.src([
@@ -465,6 +505,17 @@ gulp.task('sound-check', function(){
     .then(playErrorSound);
 });
 
+function updateBustsFile(cb){
+
+  var stream = gulp.src(cacheBustingTemplateFilesSource)
+    .pipe(template({busters: busts}))
+    .pipe(gulp.dest(cacheBustingTemplateFilesDeploy));
+
+  logger.log(busts);
+
+  stream.on('finish', cb);
+}
+
 /**
  * Task runs everything needed to create a full deployment inside the deployment
  * directory at the start of deployment. During development, use watchers to
@@ -476,15 +527,14 @@ gulp.task('deploy', gulp.series(
   gulp.parallel(
     gulp.series(
       buildSprites,
-      buildStyles,
-      gulp.series([/*performCacheBusting, */addBustingKeysToHtml])
+      buildStyles
     ),
     gulp.series(
       buildServerSideScripts,
-      buildFrontScripts//,
-      // gulp.series([performCacheBusting, addBustingKeysToHtml])
+      buildFrontScripts
     )
-  )
+  ),
+  updateBustsFile
 ));
 
 gulp.task('serve', function(next){
@@ -515,7 +565,7 @@ gulp.task('serve', function(next){
       spriteWatcher.on('all', batchTasks(gulp.series(
         buildSprites, 
         buildStyles,
-        gulp.series([/*performCacheBusting, */addBustingKeysToHtml]),
+        updateBustsFile,
         reloadStyles,
         playReloadSound
       )));
@@ -525,7 +575,7 @@ gulp.task('serve', function(next){
       stylesWatcher = chokidar.watch(stylesSourceFilesToDeploy, {ignoreInitial: true});
       stylesWatcher.on('all', batchTasks(gulp.series(
         buildStyles,
-        gulp.series([/*performCacheBusting, */addBustingKeysToHtml]),
+        updateBustsFile,
         reloadStyles,
         playReloadSound
       )));
@@ -556,9 +606,24 @@ gulp.task('serve', function(next){
         isomorphicLogicPath: './scripts/routing/isomorphicLogic',
         extraCompress: process.env.NODE_ENV,
         mode: assembly.modes.BUILD_AND_WATCH,//currently, only WATCH is not available
-        publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+        // publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
+        publicGeneratedFilesDirectory: '../' + gulpTemporaryFilesPath + '/.react-router-assembly',
         onUpdate: function(){
-          serverReload();
+          var stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
+            .pipe(rename(bustAndRename(
+              generateUUID(), 
+              busts, 
+              'scripts/.react-router-assembly' + '/scripts',
+              'scripts/.react-router-assembly' + '/scripts'
+            )))
+            .pipe(gulp.dest(distPath + '/scripts/.react-router-assembly' + '/scripts'));
+            // should generate in temporary folder and rename to deploy
+          
+          stream.on('finish', function(){
+            updateBustsFile(function(){
+              serverReload();
+            })
+          });
         }
       });
 
