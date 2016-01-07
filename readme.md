@@ -6,6 +6,7 @@
 
 ## Constituents
 What React boilerplate does:
+
 - compile SASS
 - convert ES6 JavaScript including JSX to ES5
 - merge image sprites into a single file to reduce the number of file downloads
