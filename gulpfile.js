@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-01-07 02:26:49
+ * @Last Modified time: 2016-01-10 20:13:23
  */
 
 'use strict';
@@ -72,8 +72,6 @@ var sourceGraphicsSpritesPath = sourcePath + '/public/graphics/sprites';
 var spritesDeployPath = 'deploy/public/graphics/sprites';
 var gulpTemporaryFilesPath = '.gulp-temp';
 var temporarySpriteSassPath = gulpTemporaryFilesPath + '/scss';
-// var temporaryCacheBustingHashesPath = gulpTemporaryFilesPath + '/bust';
-// var temporaryCacheBustingHashesFilename = 'bust.json';
 var sourceSpriteStylePath = temporarySpriteSassPath;
 var sourceGraphicsSpritesDefinitionFile = '_sprity-definition.scss';
 var spritesSourceFilesToDeploy = sourcePath + '/public/graphics/sprites/**/*.{png,jpg}';
@@ -83,29 +81,6 @@ var errorSoundPath = 'alert-1.wav';
 var cacheBustingTemplateFilesSource = sourcePath + '/views/**/*.{handlebars,html}';
 var cacheBustingTemplateFilesDeploy = distPath + '/views/';
 var busts = {};
-
-// var bustConfig = {
-//   fileName: temporaryCacheBustingHashesFilename,
-//   algo: function(vinylFile){
-//     var relativeFilePath = path.relative(vinylFile.cwd, vinylFile.path);
-//     var busters = readJsonSync(temporaryCacheBustingHashesPath + '/' + temporaryCacheBustingHashesFilename);
-//     var bust = busters[relativeFilePath];
-//     var oldFilePath;
-
-//     if(typeof bust !== 'undefined'){
-//       oldFilePath = path.dirname(relativeFilePath) + '/' + 
-//         path.basename(relativeFilePath, path.extname(relativeFilePath)) + '-' + 
-//         bust + path.extname(relativeFilePath);
-
-//       del(oldFilePath);
-//     }
-
-//     return require("crypto")
-//       .createHash("md5")
-//       .update(vinylFile.contents)
-//       .digest("hex");
-//   }
-// };
 
 function swallowError (error) {
   // If you want details of the error in the console
@@ -279,23 +254,6 @@ function generateUUID(){
   return uuid.v1();
 }
 
-// function changeCache(newValues){
-
-// }
-
-// function getCache(){
-
-// }
-
-// function bustStyles(cb){
-//   var uuid = generateUUID();
-
-
-//   return gulp.src(sassEntryFile)
-//     .pipe(rename({suffix: '.' + uuid}))
-//     .pipe(gulp.dest(cssDestinationDirectory))
-// }
-
 function bustAndRename(uuid, bustsObject, basePathSource, basePathDest){
   return function(parsedPath){
     var originalPath;
@@ -319,8 +277,6 @@ function buildStyles(){
         browsers: ['last 2 versions'],
         cascade: false
     }))
-    // .pipe(require('./gulp-plugins/rename')())
-    // .pipe(changeCache(uuid))
     .pipe(rename(bustAndRename(
       generateUUID(), 
       busts,
@@ -365,11 +321,9 @@ function buildFrontScripts(cb){
     isomorphicLogicPath: './scripts/routing/isomorphicLogic',
     extraCompress: process.env.NODE_ENV,
     mode: assembly.modes.BUILD,//currently, only WATCH is not available
-    // publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
     publicGeneratedFilesDirectory: '../' + gulpTemporaryFilesPath + '/.react-router-assembly',
     onUpdate: function(){
 
-      // gulp.src(distPath + '/scripts/.react-router-assembly' + '/scripts/main.generated.js')
       var stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
         .pipe(rename(bustAndRename(
           generateUUID(), 
@@ -382,15 +336,6 @@ function buildFrontScripts(cb){
       stream.on('finish', cb);
     }
   });
-  
-
-
-  // return browserifyInstance
-  //   .transform(babelify)
-  //   .transform(browserifyShim)
-  //   .pipe(gulp.dest(browserifyDeployScriptPath))
-  //   .pipe(bust(bustConfig))
-  //   .pipe(gulp.dest(temporaryCacheBustingHashesPath));
 }
 
 function playReloadSound(){
@@ -429,55 +374,6 @@ function readJsonSync(pathToFile){
     "utf8"
   ))
 }
-
-// function addBustingKeysToHtml(){
-
-//   return gulp.src(cacheBustingTemplateFilesSource)
-//     .pipe(template({busters: busts}))
-//     .pipe(gulp.dest(cacheBustingTemplateFilesDeploy));
-// }
-
-// function performCacheBusting(done){
-//   var busters = JSON.parse(fs.readFileSync(
-//     temporaryCacheBustingHashesPath + '/' + temporaryCacheBustingHashesFilename, 
-//     "utf8"
-//   ));
-//   var busterKeyPath;
-//   var parallelStreams = [];
-//   var renamer;
-
-//   function createRenamer(fullPath, bust){
-
-//     return function createRenamerStream(done){
-//       logger.log('renaming ' + fullPath);
-
-//       return gulp.src(fullPath)
-//         .on('error', swallowError)
-//         .pipe(rename(function(renamePath){
-//           var bustedName = path.basename(fullPath, path.extname(fullPath)) + '-' + bust;
-
-//           renamePath.dirname = path.dirname(fullPath);
-//           renamePath.basename = bustedName;
-//         }))
-//         .pipe(gulp.dest('.'));
-//     };
-//   }
-
-//   for(busterKeyPath in busters){
-//     logger.log('busting ' + busterKeyPath);
-//     renamer = createRenamer(busterKeyPath, busters[busterKeyPath]);
-//     parallelStreams.push(renamer);
-//   }
-
-//   // for some reason, gulp.parallel(parallelStreams) combined with del(..) 
-//   // inside a gulp.series didn't complete, so they were both flattened into
-//   // gulp.series. not a huge issue but I should figure out why it fails (
-//   // I'm getting a gulp#4 timeout even though all streams/callbacks work).
-
-//   gulp.series.apply(gulp, parallelStreams.concat(function(done){
-//     del(Object.keys(busters), done);
-//   }))(done);
-// }
 
 function reloadStyles(){
   return gulp.src([
@@ -606,7 +502,6 @@ gulp.task('serve', function(next){
         isomorphicLogicPath: './scripts/routing/isomorphicLogic',
         extraCompress: process.env.NODE_ENV,
         mode: assembly.modes.BUILD_AND_WATCH,//currently, only WATCH is not available
-        // publicGeneratedFilesDirectory: 'scripts/.react-router-assembly',
         publicGeneratedFilesDirectory: '../' + gulpTemporaryFilesPath + '/.react-router-assembly',
         onUpdate: function(){
           var stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
@@ -626,8 +521,6 @@ gulp.task('serve', function(next){
           });
         }
       });
-
-      //   // gulp.series([performCacheBusting, addBustingKeysToHtml]),
 
       browserifyScriptsWatcher.on('all', function(eventType, relativePath){
         syncRemovedFilesInDeploy(eventType, relativePath);
