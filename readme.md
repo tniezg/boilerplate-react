@@ -16,6 +16,5 @@ What React boilerplate does:
 
 ## Installation
 1. Get an archive of the latest version of React Boilerplate at GitHub and extract it to a separate directory.
-2. Run `npm install` in the main directory and `/source`.
-3. Run `npm start` in the main directory to build the first version of the page to `/deploy` and keep Gulp running in the background to refresh files during development. `/deploy` is self-contained, it can be copied to production.
-4. For extra compression, change the environment variable `NODE_ENV` to `production` before deploying.
+2. Run `npm run setup`.
+3. For extra compression, change the environment variable `NODE_ENV` to `production` before deploying (by running `export NODE_ENV=production`.

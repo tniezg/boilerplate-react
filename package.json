@@ -12,7 +12,8 @@
     "ls": "node node_modules/gulp/bin/gulp.js --tasks",
     "list": "node node_modules/gulp/bin/gulp.js --tasks",
     "speak": "node node_modules/gulp/bin/gulp.js sound-check",
-    "sound-check": "node node_modules/gulp/bin/gulp.js sound-check"
+    "sound-check": "node node_modules/gulp/bin/gulp.js sound-check",
+    "setup": "./setup.sh"
   },
   "private": true,
   "devDependencies": {
