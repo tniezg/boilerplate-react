@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-01-05 14:26:10
+ * @Last Modified time: 2016-02-25 02:46:36
  */
 'use strict';
 
@@ -35,6 +35,9 @@ if(configuration === null){
     serverPropsGeneratorPath: routingModulesDirectory + '/routing/serverPropsGenerator'
   };
 
+  app.use('/public', express.static('./public'));
+  app.use('/scripts', express.static('./public'));
+
   function setupRest(){
     let exphbs;
     let serverLogger;
@@ -48,8 +51,6 @@ if(configuration === null){
     exphbs = require('express-handlebars');
     app.engine('handlebars', exphbs());
     app.set('view engine', 'handlebars');
-
-    app.use(express.static('public'));
 
     // this route is not specific to react but useful
     app.use(function(error, request, response, next) {
@@ -75,6 +76,7 @@ if(configuration === null){
     routesElementPath: paths.routesElementPath,
     serverPropsGeneratorPath: paths.serverPropsGenerator,
     isomorphicLogicPath: paths.isomorphicLogicPath,
+    publicGeneratedFilesDirectory: './scripts/.react-router-assembly',
 
     onComplete: setupRest,
     templatePath: './views/react-page.handlebars',

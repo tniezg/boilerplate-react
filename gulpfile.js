@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-01-10 20:13:23
+ * @Last Modified time: 2016-02-25 03:16:33
  */
 
 'use strict';
@@ -329,7 +329,7 @@ function buildFrontScripts(cb){
           generateUUID(), 
           busts,
           'scripts/.react-router-assembly' + '/scripts',
-          'scripts/.react-router-assembly' + '/scripts'
+          'scripts'
         )))
         .pipe(gulp.dest(distPath + '/scripts/.react-router-assembly' + '/scripts'));
         // should generate in temporary folder and rename to deploy
@@ -509,7 +509,7 @@ gulp.task('serve', function(next){
               generateUUID(), 
               busts, 
               'scripts/.react-router-assembly' + '/scripts',
-              'scripts/.react-router-assembly' + '/scripts'
+              'scripts'
             )))
             .pipe(gulp.dest(distPath + '/scripts/.react-router-assembly' + '/scripts'));
             // should generate in temporary folder and rename to deploy
