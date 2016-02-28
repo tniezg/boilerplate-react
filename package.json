@@ -16,8 +16,8 @@
     "speak": "node node_modules/gulp/bin/gulp.js sound-check",
     "sound-check": "node node_modules/gulp/bin/gulp.js sound-check",
 
-    "setup": "./environment-setup-scripts/setup.sh",
-    "configure": "./environment-setup-scripts/load-config.sh"
+    "sound-check": "node node_modules/gulp/bin/gulp.js sound-check",
+    "open-browser": ". environment-setup-scripts/_load-config.sh; node node_modules/gulp/bin/gulp.js browser"
   },
   "private": true,
   "devDependencies": {

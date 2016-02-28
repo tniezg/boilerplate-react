@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-02-25 03:16:33
+ * @Last Modified time: 2016-02-28 02:59:03
  */
 
 'use strict';
@@ -96,19 +96,26 @@ function playErrorSound(){
   return Q.nbind(sfx.play, sfx)(errorSoundPath, 50);
 }
 
+function tryOpenSite(){
+  var configuration = determineConfiguration();
+  var open = configuration.gulp.openBrowser;
+
+  logger.log('should open default browser? ' + (open?'yes':'no'));
+
+  if(open === true){
+    openSite();
+  }
+
+  return null;
+}
+
 function openSite(){
   var uri;
   var configuration = determineConfiguration();
 
-  logger.log('should open default browser? ' + (configuration.openBrowser?'yes':'no'));
+  uri = 'http://' + configuration.host + ':' + configuration.port;
 
-  if(configuration.openBrowser === true){
-    uri = 'http://' + configuration.host + ':' + configuration.port;
-
-    return gulp.src(__filename).pipe(open({uri:uri}));
-  }else{
-    return null;
-  }
+  gulp.src(__filename).pipe(open({uri:uri}));
 }
 
 
@@ -522,21 +529,16 @@ gulp.task('serve', function(next){
         }
       });
 
-      browserifyScriptsWatcher.on('all', function(eventType, relativePath){
-        syncRemovedFilesInDeploy(eventType, relativePath);
-
-        //assume that if scripts don't require something that was removed, 
-        //only a refresh is needed without new Browserify bundling
-        serverReload();
-      });
-
-      logger.log('watching front-end-only scripts files in source');
-
-      return openSite();
+      return tryOpenSite();
     }, function(){
       throw new Error('cannot spawn server');
     });
 
+  next();
+});
+
+gulp.task('browser', function(next){
+  openSite();
   next();
 });
 

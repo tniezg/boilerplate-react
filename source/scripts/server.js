@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-02-25 02:46:36
+ * @Last Modified time: 2016-02-28 03:03:39
  */
 'use strict';
 
@@ -61,7 +61,7 @@ if(configuration === null){
       });
     });
 
-    let server = app.listen(3000, function () {
+    let server = app.listen(configuration.port, configuration.host, function () {
       let host = server.address().address;
       let port = server.address().port;
 
