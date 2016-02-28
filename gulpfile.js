@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-02-28 04:54:53
+ * @Last Modified time: 2016-02-28 07:01:50
  */
 
 'use strict';
@@ -37,10 +37,10 @@ var gulpif = require('gulp-if');
 var batch = require('gulp-batch');
 var bust = require('gulp-buster');
 var rename = require('gulp-rename');
-var template = require('gulp-template');
 var chokidar = require('chokidar');
 var assembly = require('react-router-assembly');
 var batchServerReload;
+var stream = require('stream');
 
 var sourcePath = 'source';
 var distPath = 'deploy';
@@ -52,8 +52,7 @@ var rawSourceFilesToDeploy = [
   '!' + sourcePath + '/public/{styles,styles/**}',// ignore scss files, they'll be processed to css
   '!' + sourcePath + '/.gitignore',// file not needed in deploy
   '!' + sourcePath + '/{react-components,react-components/**}',
-  '!' + sourcePath + '/public/graphics/{sprites,sprites/**}',// ignore because sprites
-  '!' + sourcePath + '/{views,views/**}'
+  '!' + sourcePath + '/public/graphics/{sprites,sprites/**}'// ignore because sprites
 ];
 var nodeModulesToDeploy = sourcePath + '/node_modules/*';
 var stylesSourceFilesToDeploy = sourcePath + '/public/styles/**/*';
@@ -78,8 +77,6 @@ var spritesSourceFilesToDeploy = sourcePath + '/public/graphics/sprites/**/*.{pn
 var spritesImagesUrlPath = '/graphics/sprites';
 var reloadSoundPath = 'alert-2.wav';
 var errorSoundPath = 'alert-1.wav';
-var cacheBustingTemplateFilesSource = sourcePath + '/views/**/*.{handlebars,html}';
-var cacheBustingTemplateFilesDeploy = distPath + '/views/';
 var busts = {};
 var cancellableReloadTimeout = null;
 
@@ -383,20 +380,10 @@ function readJsonSync(pathToFile){
   ))
 }
 
-function reloadStyles(){
-  return gulp.src([
-      cssDestinationDirectory + '**/*',
-      cacheBustingTemplateFilesDeploy
-    ])
-    .pipe(livereload());
-}
+function reloadStyles(cb){
+  serverReload();
 
-function reloadBrowserifyScripts(){
-  return gulp.src([
-      browserifyDeployScriptPath + browserifyDeployScriptFileName, 
-      cacheBustingTemplateFilesDeploy
-    ])
-    .pipe(livereload());
+  cb();
 }
 
 gulp.task('play-error-sound', function(cb){
@@ -410,13 +397,18 @@ gulp.task('sound-check', function(){
 });
 
 function updateBustsFile(cb){
-  var stream = gulp.src(cacheBustingTemplateFilesSource)
-    .pipe(template({busters: busts}))
-    .pipe(gulp.dest(cacheBustingTemplateFilesDeploy));
+  var bustsStream = new stream.Readable();
+
+  bustsStream._read = function noop() {}; // redundant? see update below
+  bustsStream.push(JSON.stringify(busts));
+  bustsStream.push(null);
+
+  bustsStream
+    .pipe(source('.busters.json'))
+    .pipe(gulp.dest(serverScriptsDeployPath))
+    .on('finish', cb);
 
   logger.log('busts: ' + JSON.stringify(busts));
-
-  stream.on('finish', cb);
 }
 
 /**

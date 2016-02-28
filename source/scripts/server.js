@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:21:37
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-02-28 03:03:39
+ * @Last Modified time: 2016-02-28 06:37:27
  */
 'use strict';
 
@@ -34,6 +34,8 @@ if(configuration === null){
     isomorphicLogicPath: routingModulesDirectory + '/routing/isomorphicLogic',
     serverPropsGeneratorPath: routingModulesDirectory + '/routing/serverPropsGenerator'
   };
+  let fs;
+  let busts;
 
   app.use('/public', express.static('./public'));
   app.use('/scripts', express.static('./public'));
@@ -71,6 +73,12 @@ if(configuration === null){
     });
   }
 
+  app.use('/public', express['static']('./public'));
+  app.use('/scripts', express['static']('./public'));
+
+  fs = require('fs');
+  busts = JSON.parse(fs.readFileSync('scripts/.busters.json', 'utf8'));
+
   assembly.attach({
     app: app,
     routesElementPath: paths.routesElementPath,
@@ -81,7 +89,11 @@ if(configuration === null){
     onComplete: setupRest,
     templatePath: './views/react-page.handlebars',
     additionalTemplateProps: {
-      pageTitle: 'React Boilerplate Title'
+      pageTitle: 'React Boilerplate Title',
+      busters: {
+        style: busts['public/styles/main.css'],
+        logic: busts['scripts/.react-router-assembly/scripts/main.generated.js']
+      }
     }
   });
 }
