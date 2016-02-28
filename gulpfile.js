@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-02-28 07:01:50
+ * @Last Modified time: 2016-02-28 12:52:43
  */
 
 'use strict';
@@ -517,7 +517,11 @@ gulp.task('serve', function(next){
           cancelServerReload();
         },
         onUpdate: function(){
-          var stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
+          var stream;
+
+          logger.log('cache busting files using rename');
+
+          stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
             .pipe(rename(bustAndRename(
               generateUUID(), 
               busts, 
