@@ -2,7 +2,7 @@
  * @Author: Tomasz Niezgoda
  * @Date: 2015-11-07 23:06:18
  * @Last Modified by: Tomasz Niezgoda
- * @Last Modified time: 2016-02-28 02:59:03
+ * @Last Modified time: 2016-02-28 04:54:53
  */
 
 'use strict';
@@ -81,6 +81,7 @@ var errorSoundPath = 'alert-1.wav';
 var cacheBustingTemplateFilesSource = sourcePath + '/views/**/*.{handlebars,html}';
 var cacheBustingTemplateFilesDeploy = distPath + '/views/';
 var busts = {};
+var cancellableReloadTimeout = null;
 
 function swallowError (error) {
   // If you want details of the error in the console
@@ -409,12 +410,11 @@ gulp.task('sound-check', function(){
 });
 
 function updateBustsFile(cb){
-
   var stream = gulp.src(cacheBustingTemplateFilesSource)
     .pipe(template({busters: busts}))
     .pipe(gulp.dest(cacheBustingTemplateFilesDeploy));
 
-  logger.log(busts);
+  logger.log('busts: ' + JSON.stringify(busts));
 
   stream.on('finish', cb);
 }
@@ -439,6 +439,14 @@ gulp.task('deploy', gulp.series(
   ),
   updateBustsFile
 ));
+
+function cancellableServerReload(){
+  cancellableReloadTimeout = setTimeout(serverReload, 1000);
+}
+
+function cancelServerReload(){
+  clearTimeout(cancellableReloadTimeout);
+}
 
 gulp.task('serve', function(next){
 
@@ -485,14 +493,14 @@ gulp.task('serve', function(next){
       
       logger.log('watching style files in source');
 
-      serverScriptsWatcher = chokidar.watch(serverScriptsSourceFilesToDeploy, {ignoreInitial: true});
       batchServerScripts = batchTasks(gulp.series(
         buildServerSideScripts,
         function(cb){
-          serverReload();//usually, the server doesn't need to be reloaded but here it does
+          cancellableServerReload();
           cb();
         }
       ));
+      serverScriptsWatcher = chokidar.watch(serverScriptsSourceFilesToDeploy, {ignoreInitial: true});
       serverScriptsWatcher.on('all', function(eventType, relativePath){
         syncRemovedFilesInDeploy(eventType, relativePath);
 
@@ -510,6 +518,12 @@ gulp.task('serve', function(next){
         extraCompress: process.env.NODE_ENV,
         mode: assembly.modes.BUILD_AND_WATCH,//currently, only WATCH is not available
         publicGeneratedFilesDirectory: '../' + gulpTemporaryFilesPath + '/.react-router-assembly',
+        onChange: function(){
+          logger.log('cancelling delayed server reload due to front-end ' + 
+            'changes after back-end (reloading after front-end gets updated ' + 
+            'instead of twice)', {color: 'yellow'});
+          cancelServerReload();
+        },
         onUpdate: function(){
           var stream = gulp.src(gulpTemporaryFilesPath + '/.react-router-assembly' + '/scripts/main.generated.js')
             .pipe(rename(bustAndRename(
