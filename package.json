@@ -5,15 +5,19 @@
   "main": "gulpfile.js",
   "author": "Tomasz Niezgoda",
   "scripts": {
-    "deploy": "node node_modules/gulp/bin/gulp.js deploy",
-    "build": "node node_modules/gulp/bin/gulp.js deploy",
-    "serve": "node node_modules/gulp/bin/gulp.js serve",
-    "start": "node node_modules/gulp/bin/gulp.js",
+    "deploy": ". environment-setup-scripts/_load-config.sh; node node_modules/gulp/bin/gulp.js deploy",
+    "build": ". environment-setup-scripts/_load-config.sh; node node_modules/gulp/bin/gulp.js deploy",
+    "serve": ". environment-setup-scripts/_load-config.sh; node node_modules/gulp/bin/gulp.js serve",
+    "start": ". environment-setup-scripts/_load-config.sh; node node_modules/gulp/bin/gulp.js",
+
     "ls": "node node_modules/gulp/bin/gulp.js --tasks",
     "list": "node node_modules/gulp/bin/gulp.js --tasks",
+
     "speak": "node node_modules/gulp/bin/gulp.js sound-check",
     "sound-check": "node node_modules/gulp/bin/gulp.js sound-check",
-    "setup": "./setup.sh"
+
+    "setup": "./environment-setup-scripts/setup.sh",
+    "configure": "./environment-setup-scripts/load-config.sh"
   },
   "private": true,
   "devDependencies": {
