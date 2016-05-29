@@ -32,7 +32,6 @@ var open = require('gulp-open');
 var cache = require('gulp-cached');
 var _ = require('lodash');
 var sfx = require("sfx");
-var sprity = require('sprity');
 var gulpif = require('gulp-if');
 var batch = require('gulp-batch');
 var bust = require('gulp-buster');
@@ -71,7 +70,6 @@ var sourceGraphicsSpritesPath = sourcePath + '/public/graphics/sprites';
 var spritesDeployPath = 'deploy/public/graphics/sprites';
 var gulpTemporaryFilesPath = '.gulp-temp';
 var temporarySpriteSassPath = gulpTemporaryFilesPath + '/scss';
-var sourceSpriteStylePath = temporarySpriteSassPath;
 var sourceGraphicsSpritesDefinitionFile = '_sprity-definition.scss';
 var spritesSourceFilesToDeploy = sourcePath + '/public/graphics/sprites/**/*.{png,jpg}';
 var spritesImagesUrlPath = '/graphics/sprites';
@@ -299,22 +297,25 @@ function buildSprites(cb){
     //Skip sprite generation as there are not sprite source images.
     cb();
   }else{
+    var spritesmith = require('gulp.spritesmith');
+    var spriteData = gulp.src(sourceGraphicsSpritesPath + '/**/*.{png,jpg}').pipe(spritesmith({
+      padding: 5,
+      imgName: 'sprite.png',
+      cssName: 'sprite-style.scss'
+    }));
 
-    return sprity.src({
-      src: sourceGraphicsSpritesPath + '/**/*.{png,jpg}',
-      style: sourceGraphicsSpritesDefinitionFile,
-      prefix: 'sprite',
-      cssPath: spritesImagesUrlPath,
-      processor: 'sass',
-      dimension: [{
-        ratio: 1, dpi: 120
-      }, {
-        ratio: 2, dpi: 160
-      }, {
-        ratio: 3, dpi: 240
-      }]
-    })
-    .pipe(gulpif('*.png', gulp.dest(spritesDeployPath), gulp.dest(sourceSpriteStylePath)));
+    var imagemin = require('gulp-imagemin');
+    var merge = require('merge-stream');
+
+    var imgStream = spriteData.img
+      .pipe(buffer())
+      .pipe(imagemin())
+      .pipe(gulp.dest(spritesDeployPath));
+
+    var cssStream = spriteData.css
+      .pipe(gulp.dest(temporarySpriteSassPath));
+
+    return merge(imgStream, cssStream);
   }
 }
 
